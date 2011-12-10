@@ -6,7 +6,6 @@
 
 #define STATIC_IP 1
 #define DHCP 0
-#define PUSHER_CLIENT_ID YOUR_PUSHER_CLIENT
 
 #include <HashMap.h>
 #include <PusherClient.h>
@@ -26,12 +25,20 @@ byte mac[] = {0x90, 0xa2, 0xda, 0x00, 0x87, 0xde};
 byte gateway[] = { 192, 168, 4, 1 }; //MY DSL DEVICE
 byte subnet[] = { 255, 255, 255, 0 }; //MY SUBNET MASK
 const char* ip_to_str(const uint8_t*);
-//byte server[] = { 107,22,234,17 }; // Google
-PusherClient client("PUSHER_CLIENT_ID");
+boolean static didPusherClientConnect = false;
+PusherClient pusherClient("PUSHER_API_KEY_HERE");
+
+/* Talk to Heroku: */
+byte herokuServer[] = { 107, 22, 233, 248 }; 
+const char* herokuHostName = "HEROKU_HOSTNAME_HERE";
+Client herokuClient(herokuServer, 80);
+
+
+long lastConnectionTime = 0;        // last time you connected to the server, in milliseconds
+boolean lastConnected = false;      // state of the connection last time through the main loop
+const int postingInterval = 10000;  //delay between updates to Pachube.com
 
 boolean static isIPValid = false;
-boolean static didClientConnect = false;
-//Client client(server, 80);
 
 void setup() {
   Serial.begin(9600);
@@ -41,6 +48,7 @@ void setup() {
   Ethernet.begin(mac, ip);
   Serial.print("Static IP: ");
   Serial.println(ip_to_str(ip));
+  delay(1000);
   isIPValid = true;
 #else /* STATIC_IP */
 
@@ -75,49 +83,49 @@ void loop() {
     getAnIP();
 #endif
   } else {
-    if (!didClientConnect) {
-      Serial.print("Starting Client Connection..");
-      if (client.connect()) {
+    if (!didPusherClientConnect) {
+      Serial.print("Starting PusherClient Connection: ");
+      if (pusherClient.connect()) {
         Serial.println("connected");
-        client.bindAll(ac);
-        client.subscribe("cloudcomfort");
-        didClientConnect = true;
+        pusherClient.bindAll(ac);
+        pusherClient.subscribe("cloudcomfort");
+        didPusherClientConnect = true;
 	Serial.println("connected");
       } else {
 	Serial.println("failed");
         // if you didn't get a connection to the server:
-        while (1) {
-          Serial.println("didnt connect. plz reset.");
-        }
+        didPusherClientConnect = false;
+	Serial.println("didn't connect.");
       }
     } else {
       // if there are incoming bytes available 
       // from the server, read them and print them:
-      if (client.connected()) {
-	client.monitor();
+      if (pusherClient.connected()) {
+	pusherClient.monitor();
       } else {
-	didClientConnect = false;
-	Serial.println("in loop! not connected"); 
+	didPusherClientConnect = false;
+	//	Serial.println("in loop! not connected"); 
       }
+      sendSensorValues();
     }
-    /*
-    // if the server's disconnected, stop the client:
-    if (!client.connected()) {
-    Serial.println();
-    Serial.println("disconnecting.");
-
-    // do nothing forevermore:
-    for(;;)
-      ;
-  }*/
   }
 }
 
 void sendSensorValues() {
-  // Make a HTTP request:
-  //client.println("POST http://electric-beach-9373.heroku.com/api/1/poll HTTP/1.1");
-  //client.println("tempc:63");
-  //client.println();
+  float temperature = getVoltage(0);  // getting the voltage reading from the temperature sensor
+  int tempCelsius = (temperature - .5) * 100;          // converting from 10 mv per degree wit 500 mV offset
+                                                   // to degrees ((volatge - 500mV) times 100)
+  Serial.print("Reporting temperature: ");
+  Serial.println(tempCelsius, DEC);
+  sendData(tempCelsius);
+}
+/*
+ * getVoltage() - returns the voltage on the analog input defined by
+ * pin
+ */
+float getVoltage(int pin){
+   return (analogRead(pin) * .004882814); //converting from a 0 to 1024 digital range
+                                         // to 0 to 5 volts (each 1 reading equals ~ 5 millivolts
 }
 
 // Just a utility function to nicely format an IP address.
@@ -127,11 +135,9 @@ const char* ip_to_str(const uint8_t* ipAddr) {
   return buf;
 }
 
-void ac(String data) {
-  
+void ac(String data) {  
   Serial.print("AC Event: ");
   Serial.println(data);
-  
 }
 
 #if DHCP && POLLING_DHCP
@@ -232,3 +238,60 @@ void synchronousDHCP() {
   Serial.println(ip_to_str(dnsAddr));
 }
 #endif
+
+// this method makes a HTTP connection to the server:
+void sendData(int thisData) {
+  // if there's a successful connection:
+  if (herokuClient.connect()) {
+    Serial.println("connecting to Heroku...");
+    // send the HTTP PUT request. 
+
+    herokuClient.print("POST /api/1/poll HTTP/1.1\n"); // TODO change to PUT
+    herokuClient.print("Host: ");
+    herokuClient.print(herokuHostName);
+    herokuClient.print("\n");
+    // fill in your Pachube API key here:
+    herokuClient.print("X-PachubeApiKey: YOUR_KEY_HERE\n");
+    herokuClient.print("Content-Length: ");
+
+    // calculate the length of the sensor reading in bytes:
+    int thisLength = getLength(thisData) + 6;
+    herokuClient.println(thisLength, DEC);
+
+    // last pieces of the HTTP PUT request:
+    herokuClient.print("Content-Type: application/x-www-form-urlencoded\n");
+    herokuClient.println("Connection: close\n");
+
+    // here's the actual content of the PUT request:
+    herokuClient.print("tempc=");
+    herokuClient.println(thisData, DEC);
+
+    // note the time that the connection was made:
+    lastConnectionTime = millis();
+    Serial.println("SUCCESS");
+  } else {
+    // if you couldn't make a connection:
+    Serial.println("connection to Heroku failed");
+  }
+}
+
+
+// This method calculates the number of digits in the
+// sensor reading.  Since each digit of the ASCII decimal
+// representation is a byte, the number of digits equals
+// the number of bytes:
+
+int getLength(int someValue) {
+  // there's at least one byte:
+  int digits = 1;
+  // continually divide the value by ten, 
+  // adding one to the digit count for each
+  // time you divide, until you're at 0:
+  int dividend = someValue /10;
+  while (dividend > 0) {
+    dividend = dividend /10;
+    digits++;
+  }
+  // return the number of digits:
+  return digits;
+}
