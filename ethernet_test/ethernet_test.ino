@@ -46,8 +46,6 @@ void setup() {
   } else {
     Serial.println("IP Found");
   }
-  airConditioner.setupTemp();
-  ACTemp = 19;
 }
 
 void loop() {
@@ -118,7 +116,7 @@ void sendData(int thisData) {
       String line = readLine();
       Serial.println(line);
       if (line.startsWith("ac=")) {
-        int newAcStatus = line.substring(3).toInt();
+        newAcStatus = line.substring(3).toInt();
       } 
       else if (line.startsWith("tempc=")) {
         newTempc = line.substring(6).toInt();
@@ -136,11 +134,19 @@ void sendData(int thisData) {
 
     if (acStatus != newAcStatus) {
       acStatus = newAcStatus;
-      airConditioner.setPower(acStatus);      
+      airConditioner.setPower(acStatus);
+      if (acStatus == 1) {
+          airConditioner.setupTemp();
+          ACTemp = 19;
+      }
     }
     if (ACTemp != newTempc) {
+      Serial.print("ACtemp : ");
+      Serial.print(ACTemp);
+      Serial.print("     newTempc : ");
+      Serial.println(newTempc);
+      airConditioner.setThermostat(newTempc, ACTemp);
       ACTemp = newTempc;
-      airConditioner.setThermostat(tempc);      
     }
     if (fanSpeed != newFanSpeed) {
       fanSpeed = newFanSpeed;
