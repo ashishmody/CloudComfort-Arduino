@@ -16,7 +16,7 @@ byte mac[] = {0x90, 0xa2, 0xda, 0x00, 0x87, 0xde};
 IPAddress ip(192, 168, 4, 91);
 
 /* Talk to Heroku: */
-char *herokuHostName = "electric-beach-9373.heroku.com";
+char *herokuHostName = "cloudcomfort.heroku.com";
 EthernetClient herokuClient;
 AirConditioner airConditioner;
 
