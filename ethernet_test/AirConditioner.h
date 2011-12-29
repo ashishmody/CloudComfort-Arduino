@@ -1,3 +1,4 @@
+
 /*
  * CloudComfort
  * (c) 2011
@@ -7,18 +8,20 @@
 #define AirConditioner_class_h
 #ifdef __cplusplus
 
-//#include <IRremote.h>
+#include "IRremote.h"
+#include "Arduino.h"
 
 const int FAN_LOW = 0;
 const int FAN_MEDIUM = 1;
 const int FAN_HIGH = 2;
+const int FAN_AUTO = 3;
 
-const int MIN_TEMP_VALUE = 20;
-const int MAX_TEMP_VALUE = 30;
+const int MIN_TEMP_VALUE = 19;
+const int MAX_TEMP_VALUE = 31;
 /**
  * This is the default power-on temperature setting for the Air Conditioner unit.
  */
-const int DEFAULT_TEMP = 12;
+const int DEFAULT_TEMP = 24;
 
 class AirConditioner {
 
@@ -39,12 +42,13 @@ class AirConditioner {
    * @param speed An integer between 0 (zero) and 2 (two), inclusive, representing Low, Medium, and High.
    */
   void setFanSpeed(int speed);
+  void setupTemp();
 
  protected:
   int knownPowerStatus;
   int knownTemperature;
   int knownFanSpeed;
-  //IRsend irsend;
+  IRsend irsend;
 };
 
 #endif

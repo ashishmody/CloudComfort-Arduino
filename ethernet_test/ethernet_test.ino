@@ -10,15 +10,13 @@
 #endif
 
 #include <Ethernet.h>
-//#include <IRremote.h>
 #include "AirConditioner.h"
 
 byte mac[] = {0x90, 0xa2, 0xda, 0x00, 0x87, 0xde};
-
-IPAddress ip(192, 168, 4, 80);
+IPAddress ip(192, 168, 4, 91);
 
 /* Talk to Heroku: */
-char *herokuHostName = "YOUR_HEROKU_HOSTNAME";
+char *herokuHostName = "electric-beach-9373.heroku.com";
 EthernetClient herokuClient;
 AirConditioner airConditioner;
 
@@ -28,16 +26,27 @@ const int postingInterval = 10000;  //delay between updates to Pachube.com
 
 boolean static isIPValid = false;
 
+int acStatus = -1;
+int tempc = -1;
+int fanSpeed = -1;
+int ACTemp = -1;
+    
 void setup() {
   Serial.begin(9600);
   Serial.println("BOOT");
 
   delay(1000);
   // start the Ethernet connection:
-  if (Ethernet.begin(mac) == 0) {
-    // Configure manually:
-    Ethernet.begin(mac, ip);
-  }
+  //Ethernet.begin(mac, ip);
+    if (Ethernet.begin(mac) == 0) {
+   // Configure manually:
+   Serial.println("Configuring Manually");
+   Ethernet.begin(mac, ip);
+   } else {
+   Serial.println("IP Found");
+   }
+   airConditioner.setupTemp();
+   ACTemp = 19;
 }
 
 void loop() {
@@ -62,7 +71,7 @@ void loop() {
 void sendSensorValues() {
   float temperature = getVoltage(0);  // getting the voltage reading from the temperature sensor
   int tempCelsius = (temperature - .5) * 100;          // converting from 10 mv per degree wit 500 mV offset
-                                                   // to degrees ((volatge - 500mV) times 100)
+  // to degrees ((volatge - 500mV) times 100)
   Serial.print("T=");
   Serial.println(tempCelsius, DEC);
   sendData(tempCelsius);
@@ -72,8 +81,8 @@ void sendSensorValues() {
  * pin
  */
 float getVoltage(int pin){
-   return (analogRead(pin) * .004882814); //converting from a 0 to 1024 digital range
-                                         // to 0 to 5 volts (each 1 reading equals ~ 5 millivolts
+  return (analogRead(pin) * .004882814); //converting from a 0 to 1024 digital range
+  // to 0 to 5 volts (each 1 reading equals ~ 5 millivolts
 }
 
 
@@ -104,48 +113,61 @@ void sendData(int thisData) {
     herokuClient.print("tempc=");
     herokuClient.println(thisData, DEC);
     Serial.println("POST success.");
-    
-    int acStatus = -1;
-    int tempc = -1;
-    int fanSpeed = -1;
-    while (!herokuClient.available()) {}
+
+    while (!herokuClient.available()) {
+    }
+    int newAcStatus = -1;
+    int newTempc = -1;
+    int newFanSpeed = -1;
     while (herokuClient.available()) {
       String line = readLine();
+      Serial.println(line);
       if (line.startsWith("ac=")) {
-        acStatus = line.substring(3).toInt();
-      } else if (line.startsWith("tempc=")) {
-        tempc = line.substring(6).toInt();
-      } else if (line.startsWith("fan=")) {
-        fanSpeed = line.substring(4).toInt();
+        int newAcStatus = line.substring(3).toInt();
+      } 
+      else if (line.startsWith("tempc=")) {
+        newTempc = line.substring(6).toInt();
+      } 
+      else if (line.startsWith("fan=")) {
+        newFanSpeed = line.substring(4).toInt();
       }
     }
-    
-    herokuClient.stop();
 
+    herokuClient.stop();
 
     // note the time that the connection was made:
     lastConnectionTime = millis();
     Serial.println("SUCCESS");
 
-    airConditioner.setPower(acStatus);
-    airConditioner.setThermostat(tempc);
-    airConditioner.setFanSpeed(fanSpeed);
-  } else {
+    if(acStatus != newAcStatus) {
+      acStatus = newAcStatus;
+      airConditioner.setPower(acStatus);      
+    }
+    if(ACTemp != newTempc) {
+      ACTemp = newTempc;
+      airConditioner.setThermostat(tempc);      
+    }
+    if(fanSpeed != newFanSpeed) {
+      fanSpeed = newFanSpeed;
+      airConditioner.setFanSpeed(fanSpeed);    
+    }
+  } 
+  else {
     // if you couldn't make a connection:
     Serial.println("x");
   }
 }
 
 String readLine() {
-    String line = "";
-    line.reserve(40);
-    char character;
-    while((character = herokuClient.read()) != '\n') {
-      if (character != '\r' && character != -1) {
-        line += character;
-      }
+  String line = "";
+  line.reserve(40);
+  char character;
+  while((character = herokuClient.read()) != '\n') {
+    if (character != '\r' && character != -1) {
+      line += character;
     }
-    return line;
+  }
+  return line;
 }
 
 // This method calculates the number of digits in the
@@ -167,4 +189,5 @@ int getLength(int someValue) {
   // return the number of digits:
   return digits;
 }
+
 
