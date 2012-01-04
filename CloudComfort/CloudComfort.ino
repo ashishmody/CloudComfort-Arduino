@@ -45,6 +45,8 @@ AirConditioner airConditioner;
 long lastConnectionTime = 0;        // last time you connected to the server, in milliseconds
 boolean lastConnected = false;      // state of the connection last time through the main loop
 const int postingInterval = 10000;  // delay between updates to the cloud
+const int PIN_ONLINE_LED = 4;
+const int PIN_AC_POWER_LED = 5;
 
 boolean static isIPValid = false;
 
@@ -57,6 +59,8 @@ void setup() {
   Serial.begin(9600);
   Serial.println("BOOT");
 
+  pinMode(PIN_ONLINE_LED, OUTPUT);
+  pinMode(PIN_AC_POWER_LED, OUTPUT);
   // Give the Ethernet Shield time to initialize.
   delay(1000);
 
@@ -68,6 +72,7 @@ void setup() {
   } else {
     Serial.println("IP Found");
   }
+  digitalWrite(PIN_ONLINE_LED, HIGH); 
   airConditioner.setupTemp();
   ACTemp = 19;
 }
@@ -159,6 +164,7 @@ void sendData(int thisData) {
     if (acStatus != newAcStatus) {
       acStatus = newAcStatus;
       airConditioner.setPower(acStatus);
+      digitalWrite(PIN_AC_POWER_LED, acStatus ? HIGH : LOW);
     }
     if (ACTemp != newTempc) {
       ACTemp = newTempc;
@@ -205,3 +211,5 @@ int getLength(int someValue) {
   // return the number of digits:
   return digits;
 }
+
+
