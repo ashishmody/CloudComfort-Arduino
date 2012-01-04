@@ -57,7 +57,7 @@ class AirConditioner {
    * Set the desired temperature for the thermostat, in degrees Celsius. Values are clamped between XX and YY, inclusive.
    * @param temperature Degrees Celsius.
    */
-  void setThermostat(int temperature);
+  void setThermostat(int temperature, int ACTemp);
 
   /**
    * Set the fan speed for the air conditioner. Valid values are [0..2], invalid values are ignored.

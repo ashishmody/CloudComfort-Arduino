@@ -45,6 +45,7 @@ void AirConditioner::setupTemp() {
   int i = 0;
   while (i != 15) {
     irsend.sendNEC(TemperatureDown, 32); // Toggle Power
+    delay(200);
     i++;
   }
 }
@@ -61,28 +62,28 @@ void AirConditioner::setPower(int powerStatus) {
     }
 }
 
-void AirConditioner::setThermostat(int temperature) {
+void AirConditioner::setThermostat(int temperature, int ACTemp) {
   if (temperature <= MIN_TEMP_VALUE)
     temperature = MIN_TEMP_VALUE;
   if (temperature > MAX_TEMP_VALUE)
     temperature = MAX_TEMP_VALUE;
-  if (temperature != knownTemperature) {
-    if (temperature > knownTemperature) {
+  if (temperature != ACTemp) {
+    if (temperature > ACTemp) {
       
-      for (int i = knownTemperature; i < temperature; i++) {
+      for (int i = ACTemp; i < temperature; i++) {
         // send "temp++" IR code
         Serial.print("Sending Temp++");
         irsend.sendNEC(TemperatureUp, 32); //Raise Temperature
       }
     } else {
-      for (int i = knownTemperature; i > temperature; i--) {
+      for (int i = ACTemp; i > temperature; i--) {
         // send "temp--" IR code
         Serial.print("Sending Temp --");
         irsend.sendNEC(TemperatureDown, 32); //Lower Temperature
       }
     }
   }
-  knownTemperature = temperature;
+  ACTemp = temperature;
 }
 
 void AirConditioner::setFanSpeed(int fanSpeed) {
