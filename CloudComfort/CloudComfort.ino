@@ -90,7 +90,7 @@ void loop() {
 }
 
 void sendSensorValues() {
-  float temperature = getVoltage(0);  // getting the voltage reading from the temperature sensor
+  float temperature = getVoltage(A0);  // getting the voltage reading from the temperature sensor
   int tempCelsius = (temperature - .5) * 100; // converting from 10 mv per degree wit 500 mV offset
   Serial.print("T=");
   Serial.println(tempCelsius, DEC);
@@ -158,7 +158,7 @@ void sendData(int thisData) {
 
     if (acStatus != newAcStatus) {
       acStatus = newAcStatus;
-      airConditioner.setPower(acStatus);      
+      airConditioner.setPower(acStatus);
     }
     if (ACTemp != newTempc) {
       ACTemp = newTempc;
@@ -205,5 +205,3 @@ int getLength(int someValue) {
   // return the number of digits:
   return digits;
 }
-
-
